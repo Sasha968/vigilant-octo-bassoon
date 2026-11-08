@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Ракетомодель — Симулятор Полёта</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none;touch-action:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-serif;color:#e0e0e0}
+canvas{display:block;position:absolute;top:0;left:0;touch-action:none}
+#hud{position:absolute;top:10px;right:10px;background:rgba(10,20,40,0.9);border:1px solid #3a5a8a;border-radius:6px;padding:12px 14px;font-family:'Consolas','Courier New',monospace;font-size:13px;min-width:240px;pointer-events:none;display:none;box-shadow:0 0 15px rgba(58,90,138,0.3);z-index:10}
+#hud h4{color:#6ab4ff;margin-bottom:8px;font-size:13px;letter-spacing:1px;border-bottom:1px solid #3a5a8a;padding-bottom:4px}
+.hud-row{display:flex;justify-content:space-between;margin:4px 0;align-items:center}
+.hud-label{color:#8899aa}
+.hud-val{color:#fff;font-weight:bold;min-width:80px;text-align:right}
+.hud-val.warn{color:#ffaa44}
+.hud-val.danger{color:#ff4444}
+.hud-val.ok{color:#44ff88}
+#time-controls{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:none;gap:4px;background:rgba(10,20,40,0.9);padding:8px;border-radius:6px;border:1px solid #3a5a8a;box-shadow:0 0 15px rgba(58,90,138,0.3);z-index:10}
+.time-btn{background:#1a2a3a;color:#6ab4ff;border:1px solid #3a5a8a;padding:6px 12px;cursor:pointer;font-family:monospace;font-size:13px;border-radius:3px;transition:all 0.2s}
+.time-btn:hover{background:#2a4a6a}
+.time-btn.active{background:#6ab4ff;color:#000;font-weight:bold}
+#actions{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:none;gap:6px;background:rgba(10,20,40,0.9);padding:10px;border-radius:6px;border:1px solid #3a5a8a;box-shadow:0 0 15px rgba(58,90,138,0.3);z-index:10;flex-wrap:wrap;justify-content:center;max-width:95%}
+.act-btn{background:#1a2a3a;color:#fff;border:1px solid #3a5a8a;padding:8px 14px;cursor:pointer;border-radius:4px;font-size:12px;transition:all 0.2s;white-space:nowrap}
+.act-btn:hover{background:#2a4a6a;border-color:#6ab4ff}
+.act-btn.primary{background:#2a6aaa;border-color:#4a8aca}
+.act-btn.primary:hover{background:#3a8aca}
+.act-btn.danger{background:#6a2a2a;border-color:#8a4a4a}
+.act-btn.danger:hover{background:#8a3a3a}
+.act-btn.nav{background:#1a4a3a;border-color:#3a8a6a}
+.act-btn.nav:hover{background:#2a6a5a}
+#throttle-box{position:absolute;bottom:100px;right:10px;background:rgba(10,20,40,0.9);border:1px solid #3a5a8a;border-radius:6px;padding:10px;width:70px;display:none;box-shadow:0 0 15px rgba(58,90,138,0.3);z-index:10}
+#throttle-box label{display:block;font-size:11px;color:#6ab4ff;text-align:center;margin-bottom:5px;font-weight:bold}
+#throttle-slider{writing-mode:bt-lr;-webkit-appearance:slider-vertical;width:40px;height:180px;margin:0 auto;display:block;accent-color:#6ab4ff}
+#throttle-pct{text-align:center;font-family:monospace;font-size:16px;color:#fff;margin-top:8px;font-weight:bold}
+#mobile-controls{position:absolute;bottom:100px;left:20px;display:none;gap:10px;pointer-events:none;z-index:20}
+.m-btn{width:65px;height:65px;border-radius:50%;background:rgba(42,106,170,0.5);border:3px solid #4a8aca;color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;pointer-events:all;transition:all 0.15s;box-shadow:0 4px 15px rgba(0,0,0,0.5)}
+.m-btn:active{background:rgba(42,106,170,0.9);transform:scale(0.92)}
+.m-btn.fire{background:rgba(170,42,42,0.5);border-color:#ca4a4a;font-size:30px}
+.m-btn.fire:active{background:rgba(170,42,42,0.9)}
+.m-btn.stage{background:rgba(170,170,42,0.5);border-color:#caca4a}
+.m-btn.stage:active{background:rgba(170,170,42,0.9)}
+#zoom-controls{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:none;flex-direction:column;gap:10px;pointer-events:none;z-index:20}
+.zoom-btn{width:50px;height:50px;border-radius:50%;background:rgba(42,106,170,0.5);border:2px solid #4a8aca;color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;pointer-events:all;transition:all 0.15s}
+.zoom-btn:active{background:rgba(42,106,170,0.9);transform:scale(0.92)}
+#camera-hint{position:absolute;top:50%;left:10px;transform:translateY(-50%);background:rgba(0,0,0,0.7);color:#8899aa;padding:8px 12px;border-radius:4px;font-size:11px;display:none;z-index:10;max-width:200px}
+#builder{position:absolute;top:0;left:0;width:100%;height:100%;background:#0a0e1a;z-index:100;display:flex;flex-direction:column}
+#builder.hidden{display:none}
+#builder-header{background:#111828;padding:12px 20px;border-bottom:1px solid #2a3a5a;display:flex;justify-content:space-between;align-items:center}
+#builder-header h1{color:#6ab4ff;font-size:20px}
+#builder-main{flex:1;display:flex;overflow:hidden}
+#parts-panel{width:320px;background:#0d1420;border-right:1px solid #2a3a5a;overflow-y:auto;padding:10px}
+.part-cat{margin-bottom:15px}
+.part-cat h3{color:#6ab4ff;font-size:13px;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+.part-item{background:#152030;border:1px solid #2a3a5a;padding:10px;margin-bottom:5px;border-radius:4px;cursor:pointer;transition:all 0.15s}
+.part-item:hover{background:#1e3050;border-color:#4a8aca;transform:translateX(3px)}
+.part-item .pname{font-weight:bold;font-size:13px}
+.part-item .pstats{font-size:11px;color:#8899aa;margin-top:3px;font-family:monospace}
+#rocket-view{flex:1;position:relative;background:radial-gradient(ellipse at center,#0a1525 0%,#000 100%)}
+#rocket-canvas{width:100%;height:100%;display:block}
+#builder-stats{position:absolute;bottom:10px;left:10px;background:rgba(10,20,40,0.9);border:1px solid #3a5a8a;padding:10px;border-radius:4px;font-family:monospace;font-size:12px;box-shadow:0 0 10px rgba(58,90,138,0.3)}
+#builder-stats div{margin:2px 0}
+#builder-actions{position:absolute;bottom:10px;right:10px;display:flex;gap:8px}
+#countdown{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:140px;font-weight:bold;color:#ff4444;text-shadow:0 0 40px #ff0000,0 0 80px #ff0000;display:none;z-index:50;font-family:'Arial Black',sans-serif;pointer-events:none}
+#toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,20,40,0.95);border:2px solid #6ab4ff;padding:20px 40px;border-radius:8px;font-size:18px;text-align:center;display:none;z-index:200;box-shadow:0 0 30px rgba(106,180,255,0.5)}
+#toast.fail{border-color:#ff4444;box-shadow:0 0 30px rgba(255,68,68,0.5)}
+#toast.ok{border-color:#44ff88;box-shadow:0 0 30px rgba(68,255,136,0.5)}
+@media(max-width:768px){
+  #parts-panel{width:100%;position:absolute;z-index:50;max-height:50%}
+  #mobile-controls{display:flex}
+  #zoom-controls{display:flex}
+  #camera-hint{display:block}
+  #hud{font-size:11px;min-width:180px;top:5px;right:5px}
+  #throttle-box{display:none!important}
+  .act-btn{padding:6px 10px;font-size:11px}
+}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="countdown"></div>
+<div id="hud">
+  <h4>📡 ОРБИТАЛЬНЫЕ ДАННЫЕ</h4>
+  <div class="hud-row"><span class="hud-label">Высота:</span><span class="hud-val" id="h-alt">0 м</span></div>
+  <div class="hud-row"><span class="hud-label">Скорость:</span><span class="hud-val" id="h-vel">0 м/с</span></div>
+  <div class="hud-row"><span class="hud-label">Апоцентр:</span><span class="hud-val" id="h-ap">—</span></div>
+  <div class="hud-row"><span class="hud-label">Перицентр:</span><span class="hud-val" id="h-pe">—</span></div>
+  <h4 style="margin-top:10px">🚀 РАКЕТА</h4>
+  <div class="hud-row"><span class="hud-label">Т/Т:</span><span class="hud-val" id="h-twr">0</span></div>
+  <div class="hud-row"><span class="hud-label">Масса:</span><span class="hud-val" id="h-mass">0 кг</span></div>
+  <div class="hud-row"><span class="hud-label">Сухая:</span><span class="hud-val" id="h-dry">0 кг</span></div>
+  <div class="hud-row"><span class="hud-label">Топливо:</span><span class="hud-val" id="h-fuel-kg">0 кг</span></div>
+  <div class="hud-row"><span class="hud-label">Топливо %:</span><span class="hud-val" id="h-fuel">0%</span></div>
+  <div class="hud-row"><span class="hud-label">Δv:</span><span class="hud-val" id="h-dv">0 м/с</span></div>
+  <div class="hud-row"><span class="hud-label">Перегрузка:</span><span class="hud-val" id="h-g">1.0 G</span></div>
+  <div class="hud-row"><span class="hud-label">Ступень:</span><span class="hud-val" id="h-stage">1</span></div>
+</div>
+<div id="time-controls">
+  <button class="time-btn" onclick="setTime(0)">⏸</button>
+  <button class="time-btn active" onclick="setTime(1)">1×</button>
+  <button class="time-btn" onclick="setTime(2)">2×</button>
+  <button class="time-btn" onclick="setTime(5)">5×</button>
+  <button class="time-btn" onclick="setTime(10)">10×</button>
+  <button class="time-btn" onclick="setTime(50)">50×</button>
+  <button class="time-btn" onclick="setTime(100)">100×</button>
+</div>
+<div id="actions">
+  <button class="act-btn nav" onclick="navTo('rocket')">🎯 РАКЕТА</button>
+  <button class="act-btn nav" onclick="navTo('earth')">🌍 ЗЕМЛЯ</button>
+  <button class="act-btn nav" onclick="navTo('moon')">🌕 ЛУНА</button>
+  <button class="act-btn nav" onclick="navTo('overview')">🔭 ОБЗОР</button>
+  <button class="act-btn danger" onclick="abortFlight()">✖ СБРОС</button>
+  <button class="act-btn" onclick="deployParachute()">🪂 ПАРАШЮТ</button>
+  <button class="act-btn primary" onclick="nextStage()">⬆ СТУПЕНЬ</button>
+  <button class="act-btn" onclick="showBuilder()">🔧 МЕНЮ</button>
+</div>
+<div id="throttle-box">
+  <label>ТЯГА</label>
+  <input type="range" id="throttle-slider" min="0" max="100" value="100" orient="vertical">
+  <div id="throttle-pct">100%</div>
+</div>
+<div id="mobile-controls">
+  <div class="m-btn" id="m-left">◀</div>
+  <div class="m-btn fire" id="m-fire">🔥</div>
+  <div class="m-btn stage" id="m-stage">⬆</div>
+  <div class="m-btn" id="m-right">▶</div>
+</div>
+<div id="zoom-controls">
+  <div class="zoom-btn" id="zoom-in">+</div>
+  <div class="zoom-btn" id="zoom-out">−</div>
+</div>
+<div id="camera-hint">🖱 Перетащи для камеры<br>Shift+стрелки = сдвиг</div>
+<div id="builder">
+  <div id="builder-header">
+    <h1>🚀 КОНСТРУКТОР РАКЕТЫ</h1>
+    <button class="act-btn primary" onclick="startCountdown()">🚀 ЗАПУСК</button>
+  </div>
+  <div id="builder-main">
+    <div id="parts-panel">
+      <div class="part-cat"><h3>🔴 НОСОВЫЕ ОБТЕКАТЕЛИ</h3>
+        <div class="part-item" onclick="addPart('nose_small')"><div class="pname">Нос S</div><div class="pstats">Масса: 50 кг | Высота: 2 м</div></div>
+        <div class="part-item" onclick="addPart('nose_large')"><div class="pname">Нос L</div><div class="pstats">Масса: 120 кг | Высота: 3 м</div></div>
+      </div>
+      <div class="part-cat"><h3>🔵 ТОПЛИВНЫЕ БАКИ</h3>
+        <div class="part-item" onclick="addPart('tank_s')"><div class="pname">Бак FL-T100</div><div class="pstats">Сух: 100 кг | Топливо: 800 кг | 3 м</div></div>
+        <div class="part-item" onclick="addPart('tank_m')"><div class="pname">Бак FL-T400</div><div class="pstats">Сух: 300 кг | Топливо: 3200 кг | 6 м</div></div>
+        <div class="part-item" onclick="addPart('tank_l')"><div class="pname">Бак FL-T800</div><div class="pstats">Сух: 600 кг | Топливо: 6400 кг | 10 м</div></div>
+      </div>
+      <div class="part-cat"><h3>🟠 ДВИГАТЕЛИ</h3>
+        <div class="part-item" onclick="addPart('eng_small')"><div class="pname">"Искра" LV-1</div><div class="pstats">Масса: 150 кг | Тяга: 30 кН | Isp: 280 с</div></div>
+        <div class="part-item" onclick="addPart('eng_med')"><div class="pname">"Тайфун" LV-2</div><div class="pstats">Масса: 500 кг | Тяга: 120 кН | Isp: 310 с</div></div>
+        <div class="part-item" onclick="addPart('eng_big')"><div class="pname">"Титан" LV-3</div><div class="pstats">Масса: 1500 кг | Тяга: 400 кН | Isp: 330 с</div></div>
+      </div>
+      <div class="part-cat"><h3>⚪ ПАРАШЮТ</h3>
+        <div class="part-item" onclick="addPart('parachute')"><div class="pname">Парашют MK-1</div><div class="pstats">Масса: 80 кг | Раскр. на: &lt;500 м</div></div>
+      </div>
+    </div>
+    <div id="rocket-view">
+      <canvas id="rocket-canvas"></canvas>
+      <div id="builder-stats">
+        <div>Деталей: <span id="bs-count">0</span></div>
+        <div>Высота: <span id="bs-height">0</span> м</div>
+        <div>Масса: <span id="bs-mass">0</span> кг</div>
+        <div>Тяга: <span id="bs-thrust">0</span> кН</div>
+        <div>Т/Т: <span id="bs-twr">0</span></div>
+        <div>Δv: <span id="bs-dv">0</span> м/с</div>
+      </div>
+      <div id="builder-actions">
+        <button class="act-btn danger" onclick="clearBuilder()">🗑 ОЧИСТИТЬ</button>
+        <button class="act-btn" onclick="removeLast()">↶ УДАЛИТЬ</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W, H;
+const G0 = 9.80665;
+const EARTH_RADIUS = 6371000;
+const ATMOSPHERE_HEIGHT = 100000;
+const PARTS = {
+  nose_small:  {name:'Нос S',     mass:50,    height:2,   width:1.2, type:'nose',  color:'#cc3333'},
+  nose_large:  {name:'Нос L',     mass:120,   height:3,   width:1.6, type:'nose',  color:'#aa2222'},
+  tank_s:      {name:'FL-T100',   mass:100,   fuel:800,   height:3,   width:1.4, type:'tank',  color:'#ccccdd'},
+  tank_m:      {name:'FL-T400',   mass:300,   fuel:3200,  height:6,   width:1.6, type:'tank',  color:'#bbbccc'},
+  tank_l:      {name:'FL-T800',   mass:600,   fuel:6400,  height:10,  width:1.8, type:'tank',  color:'#aabbcc'},
+  eng_small:   {name:'LV-1 Искра',mass:150,   thrust:30000,  isp:280, height:2, width:1.4, type:'engine', color:'#444455'},
+  eng_med:     {name:'LV-2 Тайфун',mass:500,  thrust:120000, isp:310, height:3, width:1.8, type:'engine', color:'#333344'},
+  eng_big:     {name:'LV-3 Титан',mass:1500,  thrust:400000, isp:330, height:4, width:2.2, type:'engine', color:'#222233'},
+  parachute:   {name:'Парашют',   mass:80,    height:0.5, width:1.2, type:'chute', color:'#ffffff'}
+};
+let builderParts = [];
+let rocket = null;
+let camera = {x: 0, y: 0, zoom: 8, targetX: 0, targetY: 0, targetZoom: 8, followRocket: true};
+let keys = {};
+let throttle = 100;
+let timeScale = 1;
+let flightActive = false;
+let parachuteDeployed = false;
+let launchPhase = 'idle';
+let countdownValue = 3;
+let stars = [];
+let clouds = [];
+const PLANETS = [
+  {name:'Земля', x:0, y:0, mass:5.972e24, radius:EARTH_RADIUS, color:'#2266cc', atmosphere:100000},
+  {name:'Луна', x:384400000, y:0, mass:7.342e22, radius:1737400, color:'#aaaaaa', atmosphere:0}
+];
+// Ракета стартует в (0, EARTH_RADIUS) — это "верх" планеты на экране.
+// Чтобы лететь В КОСМОС, нужно УВЕЛИЧИВАТЬ Y (двигаться вниз по экрану, дальше от (0,0)).
+// angle = Math.PI/2 => cos=0, sin=1 => тяга даёт ay=+a (вниз по экрану = в космос)
+const LAUNCH_SITE = { x: 0, y: EARTH_RADIUS, angle: Math.PI/2 };
+for(let i=0;i<1500;i++){ stars.push({x:(Math.random()-0.5)*2e9, y:(Math.random()-0.5)*2e9, size:Math.random()*2+0.5, brightness:Math.random()}); }
+for(let i=0;i<40;i++){ clouds.push({x:(Math.random()-0.5)*50000, y:EARTH_RADIUS+200+Math.random()*15000, w:300+Math.random()*800, h:80+Math.random()*150, alpha:0.3+Math.random()*0.4}); }
+function resize(){ W=canvas.width=window.innerWidth*window.devicePixelRatio; H=canvas.height=window.innerHeight*window.devicePixelRatio; canvas.style.width=window.innerWidth+'px'; canvas.style.height=window.innerHeight+'px'; ctx.scale(window.devicePixelRatio, window.devicePixelRatio); }
+window.addEventListener('resize', resize); resize();
+function toast(msg, type=''){ const t=document.getElementById('toast'); t.textContent=msg; t.className=type; t.style.display='block'; setTimeout(()=>t.style.display='none', 2500); }
+function addPart(id){ const p={...PARTS[id], id:Math.random()}; if(p.type==='engine') builderParts.unshift(p); else if(p.type==='nose'||p.type==='chute') builderParts.push(p); else { const engIdx=builderParts.findIndex(x=>x.type==='engine'); builderParts.splice(engIdx>=0?engIdx:0,0,p); } updateBuilderStats(); drawBuilderRocket(); }
+function removeLast(){ if(builderParts.length){ builderParts.pop(); updateBuilderStats(); drawBuilderRocket(); } }
+function clearBuilder(){ builderParts=[]; updateBuilderStats(); drawBuilderRocket(); }
+function updateBuilderStats(){ let mass=0,fuel=0,thrust=0,height=0; builderParts.forEach(p=>{ mass+=p.mass+(p.fuel||0); fuel+=p.fuel||0; if(p.thrust) thrust+=p.thrust; height+=p.height; }); const twr=mass>0?thrust/(mass*G0):0; const dryMass=mass-fuel; const dv=fuel>0&&dryMass>0?310*G0*Math.log(mass/dryMass):0; document.getElementById('bs-count').textContent=builderParts.length; document.getElementById('bs-height').textContent=height.toFixed(1); document.getElementById('bs-mass').textContent=mass.toFixed(0); document.getElementById('bs-thrust').textContent=(thrust/1000).toFixed(1); document.getElementById('bs-twr').textContent=twr.toFixed(2); document.getElementById('bs-dv').textContent=dv.toFixed(0); }
+function drawBuilderRocket(){ const c=document.getElementById('rocket-canvas'); const cx=c.getContext('2d'); c.width=c.offsetWidth*window.devicePixelRatio; c.height=c.offsetHeight*window.devicePixelRatio; cx.scale(window.devicePixelRatio, window.devicePixelRatio); cx.clearRect(0,0,c.offsetWidth,c.offsetHeight); if(!builderParts.length){ cx.fillStyle='#556'; cx.font='18px Arial'; cx.textAlign='center'; cx.fillText('Добавь детали слева', c.offsetWidth/2, c.offsetHeight/2); return; } const totalH=builderParts.reduce((s,p)=>s+p.height,0); const scale=Math.min(c.offsetHeight*0.8/totalH, 40); const cxPos=c.offsetWidth/2; let y=c.offsetHeight-30; builderParts.forEach(p=>{ const w=p.width*scale; const h=p.height*scale; const x=cxPos-w/2; if(p.type==='nose'){ const grad=cx.createLinearGradient(x,y-h,x+w,y); grad.addColorStop(0,lightenColor(p.color,40)); grad.addColorStop(1,p.color); cx.fillStyle=grad; cx.beginPath(); cx.moveTo(x,y); cx.lineTo(cxPos,y-h); cx.lineTo(x+w,y); cx.closePath(); cx.fill(); cx.strokeStyle='#fff'; cx.lineWidth=1; cx.stroke(); } else if(p.type==='engine'){ const grad=cx.createLinearGradient(x,y-h,x+w,y); grad.addColorStop(0,lightenColor(p.color,30)); grad.addColorStop(1,p.color); cx.fillStyle=grad; cx.fillRect(x,y-h,w,h); cx.strokeStyle='#fff'; cx.strokeRect(x,y-h,w,h); cx.fillStyle='#111'; cx.beginPath(); cx.moveTo(cxPos-w*0.3,y); cx.lineTo(cxPos,y+h*0.4); cx.lineTo(cxPos+w*0.3,y); cx.closePath(); cx.fill(); } else if(p.type==='chute'){ cx.fillStyle=p.color; cx.beginPath(); cx.arc(cxPos,y-h/2,w/2,0,Math.PI*2); cx.fill(); cx.strokeStyle='#888'; cx.stroke(); } else { const grad=cx.createLinearGradient(x,y-h,x+w,y); grad.addColorStop(0,lightenColor(p.color,30)); grad.addColorStop(1,p.color); cx.fillStyle=grad; cx.fillRect(x,y-h,w,h); cx.strokeStyle='#888'; cx.strokeRect(x,y-h,w,h); if(p.fuel){ cx.fillStyle='rgba(68,136,204,0.6)'; cx.fillRect(x+2,y-h+2,w-4,h-4); } } y-=h; }); }
+function lightenColor(hex, amt){ let r=parseInt(hex.slice(1,3),16); let g=parseInt(hex.slice(3,5),16); let b=parseInt(hex.slice(5,7),16); r=Math.min(255,r+amt); g=Math.min(255,g+amt); b=Math.min(255,b+amt); return `rgb(${r},${g},${b})`; }
+function darkenColor(hex, amt){ let r=parseInt(hex.slice(1,3),16); let g=parseInt(hex.slice(3,5),16); let b=parseInt(hex.slice(5,7),16); r=Math.max(0,r-amt); g=Math.max(0,g-amt); b=Math.max(0,b-amt); return `rgb(${r},${g},${b})`; }
+function startCountdown(){ if(!builderParts.length){toast('Собери ракету!','fail');return;} if(!builderParts.some(p=>p.type==='engine')){toast('Нужен двигатель!','fail');return;} if(!builderParts.some(p=>p.type==='nose')){toast('Нужен обтекатель!','fail');return;} document.getElementById('builder').classList.add('hidden'); launchPhase='countdown'; countdownValue=3; const cdEl=document.getElementById('countdown'); cdEl.style.display='block'; cdEl.textContent=countdownValue; const cdInterval=setInterval(()=>{ countdownValue--; if(countdownValue>0){ cdEl.textContent=countdownValue; } else if(countdownValue===0){ cdEl.textContent='ПУСК!'; cdEl.style.color='#44ff88'; cdEl.style.textShadow='0 0 40px #44ff88, 0 0 80px #44ff88'; } else { clearInterval(cdInterval); cdEl.style.display='none'; cdEl.style.color='#ff4444'; cdEl.style.textShadow='0 0 40px #ff0000, 0 0 80px #ff0000'; beginFlight(); } }, 1000); }
+function beginFlight(){ rocket={parts:JSON.parse(JSON.stringify(builderParts)), x:LAUNCH_SITE.x, y:LAUNCH_SITE.y, vx:0, vy:0, angle:LAUNCH_SITE.angle, angularVel:0, mass:0, alive:true, stage:1, maxAlt:0, gForce:1, onGround:true}; rocket.mass=rocket.parts.reduce((s,p)=>s+p.mass+(p.fuel||0),0); camera.x=rocket.x; camera.y=rocket.y; camera.targetX=rocket.x; camera.targetY=rocket.y; camera.zoom=8; camera.targetZoom=8; camera.followRocket=true; parachuteDeployed=false; timeScale=1; launchPhase='flying'; document.getElementById('hud').style.display='block'; document.getElementById('time-controls').style.display='flex'; document.getElementById('actions').style.display='flex'; if(window.innerWidth>768){ document.getElementById('throttle-box').style.display='block'; } flightActive=true; lastTime=performance.now(); requestAnimationFrame(gameLoop); toast('🚀 ДВИГАТЕЛИ ЗАПУЩЕНЫ! Нажми W или 🔥','ok'); }
+function showBuilder(){ flightActive=false; launchPhase='idle'; document.getElementById('builder').classList.remove('hidden'); document.getElementById('hud').style.display='none'; document.getElementById('time-controls').style.display='none'; document.getElementById('actions').style.display='none'; document.getElementById('throttle-box').style.display='none'; drawBuilderRocket(); }
+function abortFlight(){ if(rocket) rocket.alive=false; toast('💥 АВАРИЙНЫЙ СБРОС','fail'); setTimeout(showBuilder, 1500); }
+function deployParachute(){ if(!rocket||!rocket.alive) return; const alt=getAltitude(); if(alt>50000){ toast('Слишком высоко!','fail'); return; } parachuteDeployed=true; toast('🪂 Парашют раскрыт','ok'); }
+function nextStage(){ if(!rocket||!rocket.alive) return; let cutIdx=-1; for(let i=0;i<rocket.parts.length;i++){ const p=rocket.parts[i]; if(p.type==='engine'&&p.fuel<=0){ cutIdx=i; break; } } if(cutIdx>=0){ rocket.parts.splice(0, cutIdx+1); rocket.stage++; toast('⬆ Ступень '+rocket.stage,'ok'); } else { toast('Нечего отделять',''); } }
+function setTime(t){ timeScale=t; document.querySelectorAll('.time-btn').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); }
+function navTo(target){ if(!rocket) return; camera.followRocket=false; if(target==='rocket'){ camera.targetX=rocket.x; camera.targetY=rocket.y; camera.targetZoom=8; toast('🎯 Камера на ракете','ok'); } else if(target==='earth'){ camera.targetX=0; camera.targetY=0; const w=window.innerWidth, h=window.innerHeight; camera.targetZoom=Math.min(w,h)/(EARTH_RADIUS*2.5); toast('🌍 Вид на Землю','ok'); } else if(target==='moon'){ camera.targetX=PLANETS[1].x; camera.targetY=PLANETS[1].y; const w=window.innerWidth, h=window.innerHeight; camera.targetZoom=Math.min(w,h)/(PLANETS[1].radius*4); toast('🌕 Вид на Луну','ok'); } else if(target==='overview'){ const dist=PLANETS[1].x; const w=window.innerWidth, h=window.innerHeight; camera.targetX=dist/2; camera.targetY=0; camera.targetZoom=Math.min(w,h)/(dist*1.3); toast('🔭 Обзор системы','ok'); } }
+function getAltitude(){ if(!rocket) return 0; const r=Math.sqrt(rocket.x*rocket.x+rocket.y*rocket.y); return Math.max(0, r-EARTH_RADIUS); }
+function getAtmosphereDensity(alt){ if(alt>ATMOSPHERE_HEIGHT) return 0; return 1.225*Math.exp(-alt/8500); }
+function updatePhysics(dt){
+  if(!rocket||!rocket.alive) return;
+  const scaledDt=dt*timeScale;
+  let turnInput=0;
+  if(keys['a']||keys['arrowleft']||keys['m_left']) turnInput-=1;
+  if(keys['d']||keys['arrowright']||keys['m_right']) turnInput+=1;
+  if(!rocket.onGround){ rocket.angularVel+=turnInput*0.3*scaledDt; rocket.angularVel*=0.95; rocket.angle+=rocket.angularVel*scaledDt; }
+  let totalThrust=0, totalFuelRate=0, hasFuel=false;
+  rocket.parts.forEach(p=>{ if(p.type==='engine'&&p.thrust){ totalThrust+=p.thrust; totalFuelRate+=p.thrust/(p.isp*G0); } if(p.type==='tank'&&p.fuel>0) hasFuel=true; });
+  let currentThrust=0;
+  const thrusting=(keys['w']||keys['arrowup']||keys['m_fire'])&&throttle>0;
+  if(thrusting&&hasFuel){
+    currentThrust=totalThrust*(throttle/100);
+    let fuelNeeded=totalFuelRate*(throttle/100)*scaledDt;
+    const totalFuel=rocket.parts.filter(p=>p.type==='tank').reduce((s,p)=>s+p.fuel,0);
+    if(totalFuel>0){ rocket.parts.forEach(p=>{ if(p.type==='tank'&&p.fuel>0&&fuelNeeded>0){ const share=(p.fuel/totalFuel)*fuelNeeded; const use=Math.min(p.fuel, share); p.fuel-=use; fuelNeeded-=use; } }); }
+  }
+  rocket.mass=rocket.parts.reduce((s,p)=>s+p.mass+(p.fuel||0),0);
+  const r=Math.sqrt(rocket.x*rocket.x+rocket.y*rocket.y);
+  const wasOnGround=rocket.onGround;
+  rocket.onGround=(r<=EARTH_RADIUS+5)&&!thrusting;
+  if(rocket.onGround){
+    rocket.x=(rocket.x/r)*EARTH_RADIUS;
+    rocket.y=(rocket.y/r)*EARTH_RADIUS;
+    rocket.vx=0; rocket.vy=0; rocket.angularVel=0; rocket.gForce=1;
+    if(wasOnGround&&thrusting){ rocket.onGround=false; }
+  }
+  if(!rocket.onGround){
+    const gravity=G0*(EARTH_RADIUS/r)*(EARTH_RADIUS/r);
+    const ax_grav=-gravity*(rocket.x/r);
+    const ay_grav=-gravity*(rocket.y/r);
+    let ax_thrust=0, ay_thrust=0;
+    if(currentThrust>0&&rocket.mass>0){
+      const a=currentThrust/rocket.mass;
+      ax_thrust=a*Math.cos(rocket.angle);
+      ay_thrust=a*Math.sin(rocket.angle);
+    }
+    const alt=getAltitude();
+    const rho=getAtmosphereDensity(alt);
+    const speed=Math.sqrt(rocket.vx*rocket.vx+rocket.vy*rocket.vy);
+    let ax_drag=0, ay_drag=0;
+    if(rho>0&&speed>0){
+      const Cd=0.3, A=2;
+      const dragForce=0.5*rho*speed*speed*Cd*A;
+      ax_drag=-dragForce*(rocket.vx/speed)/rocket.mass;
+      ay_drag=-dragForce*(rocket.vy/speed)/rocket.mass;
+    }
+    if(parachuteDeployed&&alt<50000&&speed>5){
+      const chuteDrag=500*speed/rocket.mass;
+      ax_drag-=chuteDrag*(rocket.vx/speed);
+      ay_drag-=chuteDrag*(rocket.vy/speed);
+    }
+    const ax=ax_grav+ax_thrust+ax_drag;
+    const ay=ay_grav+ay_thrust+ay_drag;
+    const oldVx=rocket.vx, oldVy=rocket.vy;
+    rocket.vx+=ax*scaledDt;
+    rocket.vy+=ay*scaledDt;
+    rocket.x+=rocket.vx*scaledDt;
+    rocket.y+=rocket.vy*scaledDt;
+    const dvx=rocket.vx-oldVx;
+    const dvy=rocket.vy-oldVy;
+    rocket.gForce=1+Math.sqrt(dvx*dvx+dvy*dvy)/(G0*scaledDt);
+  }
+  const alt=getAltitude();
+  rocket.maxAlt=Math.max(rocket.maxAlt, alt);
+  if(r<EARTH_RADIUS-10){
+    const speed=Math.sqrt(rocket.vx*rocket.vx+rocket.vy*rocket.vy);
+    if(speed>10&&!parachuteDeployed){ rocket.alive=false; toast('💥 КРУШЕНИЕ! Скорость: '+speed.toFixed(0)+' м/с','fail'); setTimeout(showBuilder, 2500); }
+    else if(speed>5&&parachuteDeployed){ rocket.alive=false; toast('💥 Парашют не помог...','fail'); setTimeout(showBuilder, 2500); }
+    else { rocket.x=(rocket.x/r)*EARTH_RADIUS; rocket.y=(rocket.y/r)*EARTH_RADIUS; rocket.vx=0; rocket.vy=0; rocket.onGround=true; if(rocket.maxAlt>100000){ toast('✅ МЯГКАЯ ПОСАДКА! Макс: '+(rocket.maxAlt/1000).toFixed(1)+' км','ok'); } }
+  }
+  if(camera.followRocket){ camera.targetX=rocket.x; camera.targetY=rocket.y; }
+  const speed=Math.sqrt(rocket.vx*rocket.vx+rocket.vy*rocket.vy);
+  updateHUD(speed, alt);
+}
+function updateHUD(speed, alt){
+  document.getElementById('h-alt').textContent=alt<1000?alt.toFixed(0)+' м':(alt/1000).toFixed(2)+' км';
+  document.getElementById('h-vel').textContent=speed.toFixed(1)+' м/с';
+  const r=Math.sqrt(rocket.x*rocket.x+rocket.y*rocket.y);
+  const mu=G0*EARTH_RADIUS*EARTH_RADIUS;
+  const energy=0.5*speed*speed-mu/r;
+  if(energy<0&&speed>100){
+    const a=-mu/(2*energy);
+    const h_ang=r*speed;
+    const e=Math.sqrt(Math.max(0, 1-(h_ang*h_ang)/(a*mu)));
+    const ap=a*(1+e)-EARTH_RADIUS;
+    const pe=a*(1-e)-EARTH_RADIUS;
+    const apEl=document.getElementById('h-ap');
+    const peEl=document.getElementById('h-pe');
+    apEl.textContent=ap<1000?ap.toFixed(0)+' м':(ap/1000).toFixed(1)+' км';
+    peEl.textContent=pe<1000?pe.toFixed(0)+' м':(pe/1000).toFixed(1)+' км';
+    apEl.className='hud-val'+(ap<100000?' warn':'');
+    peEl.className='hud-val'+(pe<0?' danger':pe<100000?' warn':' ok');
+  } else { document.getElementById('h-ap').textContent='—'; document.getElementById('h-pe').textContent='—'; }
+  let thrust=0; rocket.parts.forEach(p=>{if(p.type==='engine') thrust+=p.thrust;});
+  const twr=rocket.mass>0?thrust/(rocket.mass*G0):0;
+  const twrEl=document.getElementById('h-twr');
+  twrEl.textContent=twr.toFixed(2);
+  twrEl.className='hud-val'+(twr<1?' danger':twr>3?' warn':' ok');
+  document.getElementById('h-mass').textContent=rocket.mass.toFixed(0)+' кг';
+  const fuel=rocket.parts.filter(p=>p.type==='tank').reduce((s,p)=>s+p.fuel,0);
+  const dryMass=rocket.mass-fuel;
+  document.getElementById('h-dry').textContent=dryMass.toFixed(0)+' кг';
+  document.getElementById('h-fuel-kg').textContent=fuel.toFixed(0)+' кг';
+  const maxFuel=rocket.parts.filter(p=>p.type==='tank').reduce((s,p)=>s+(PARTS[Object.keys(PARTS).find(k=>PARTS[k].name===p.name)]?.fuel||p.fuel),0);
+  const fuelPct=maxFuel>0?(fuel/maxFuel)*100:0;
+  const fuelEl=document.getElementById('h-fuel');
+  fuelEl.textContent=fuelPct.toFixed(1)+'%';
+  fuelEl.className='hud-val'+(fuelPct<20?' danger':fuelPct<50?' warn':'');
+  const dv=fuel>0&&dryMass>0?310*G0*Math.log(rocket.mass/dryMass):0;
+  document.getElementById('h-dv').textContent=dv.toFixed(0)+' м/с';
+  const gEl=document.getElementById('h-g');
+  gEl.textContent=rocket.gForce.toFixed(1)+' G';
+  gEl.className='hud-val'+(rocket.gForce>6?' danger':rocket.gForce>3?' warn':'');
+  document.getElementById('h-stage').textContent=rocket.stage;
+}
+function drawLaunchSite(){
+  const ls=LAUNCH_SITE;
+  const platformWidth=200, platformHeight=20;
+  ctx.fillStyle='#555'; ctx.fillRect(ls.x-platformWidth/2, ls.y-platformHeight, platformWidth, platformHeight);
+  const platGrad=ctx.createLinearGradient(ls.x-platformWidth/2, ls.y-platformHeight, ls.x+platformWidth/2, ls.y);
+  platGrad.addColorStop(0,'#666'); platGrad.addColorStop(1,'#444');
+  ctx.fillStyle=platGrad; ctx.fillRect(ls.x-platformWidth/2+5, ls.y-platformHeight+3, platformWidth-10, platformHeight-6);
+  ctx.strokeStyle='#ff0'; ctx.lineWidth=2; ctx.setLineDash([10,5]);
+  ctx.beginPath(); ctx.moveTo(ls.x-platformWidth/2+10, ls.y-platformHeight/2); ctx.lineTo(ls.x+platformWidth/2-10, ls.y-platformHeight/2); ctx.stroke();
+  ctx.setLineDash([]);
+  const towerHeight=150, towerWidth=15;
+  ctx.fillStyle='#777';
+  ctx.fillRect(ls.x-platformWidth/2-30, ls.y-platformHeight-towerHeight, towerWidth, towerHeight);
+  ctx.fillRect(ls.x+platformWidth/2+15, ls.y-platformHeight-towerHeight, towerWidth, towerHeight);
+  ctx.strokeStyle='#999'; ctx.lineWidth=2;
+  for(let i=0;i<5;i++){ const y=ls.y-platformHeight-towerHeight+i*(towerHeight/5); ctx.beginPath(); ctx.moveTo(ls.x-platformWidth/2-30, y); ctx.lineTo(ls.x-platformWidth/2-15, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(ls.x+platformWidth/2+15, y); ctx.lineTo(ls.x+platformWidth/2+30, y); ctx.stroke(); }
+  const blink=Math.sin(Date.now()/500)>0;
+  if(blink){ ctx.fillStyle='#ff0000'; ctx.shadowColor='#ff0000'; ctx.shadowBlur=10; ctx.beginPath(); ctx.arc(ls.x-platformWidth/2-22, ls.y-platformHeight-towerHeight, 4, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(ls.x+platformWidth/2+22, ls.y-platformHeight-towerHeight, 4, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur=0; }
+  ctx.fillStyle='#ffffaa'; ctx.shadowColor='#ffffaa'; ctx.shadowBlur=15;
+  ctx.beginPath(); ctx.arc(ls.x-60, ls.y-platformHeight, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(ls.x+60, ls.y-platformHeight, 3, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#444'; ctx.fillRect(ls.x-20, ls.y-5, 40, 5);
+  ctx.fillStyle='#333';
+  ctx.fillRect(ls.x-400, ls.y-80, 60, 80); ctx.fillRect(ls.x-320, ls.y-60, 40, 60);
+  ctx.fillRect(ls.x+350, ls.y-70, 50, 70); ctx.fillRect(ls.x+420, ls.y-50, 30, 50);
+  ctx.fillStyle='#ffcc44';
+  for(let i=0;i<3;i++){ for(let j=0;j<4;j++){ if(Math.random()>0.3){ ctx.fillRect(ls.x-395+i*15, ls.y-70+j*15, 8, 8); } } }
+}
+function draw(){
+  const w=window.innerWidth, h=window.innerHeight;
+  ctx.clearRect(0,0,w,h);
+  camera.x+=(camera.targetX-camera.x)*0.1;
+  camera.y+=(camera.targetY-camera.y)*0.1;
+  camera.zoom+=(camera.targetZoom-camera.zoom)*0.1;
+  ctx.save();
+  ctx.translate(w/2, h/2);
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+  const viewW=w/camera.zoom, viewH=h/camera.zoom;
+  ctx.fillStyle='#000005'; ctx.fillRect(camera.x-viewW, camera.y-viewH, viewW*2, viewH*2);
+  const altRatio=Math.min(1, getAltitude()/ATMOSPHERE_HEIGHT);
+  stars.forEach(s=>{ if(Math.abs(s.x-camera.x)>viewW||Math.abs(s.y-camera.y)>viewH) return; ctx.globalAlpha=s.brightness*(0.3+altRatio*0.7); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x, s.y, s.size/camera.zoom, 0, Math.PI*2); ctx.fill(); });
+  ctx.globalAlpha=1;
+  PLANETS.forEach(pl=>{
+    if(pl.atmosphere>0){ const atmosR=pl.radius+pl.atmosphere; const grad=ctx.createRadialGradient(pl.x, pl.y, pl.radius, pl.x, pl.y, atmosR); grad.addColorStop(0,'rgba(100,180,255,0.4)'); grad.addColorStop(0.7,'rgba(100,180,255,0.1)'); grad.addColorStop(1,'rgba(100,180,255,0)'); ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(pl.x, pl.y, atmosR, 0, Math.PI*2); ctx.fill(); }
+    const grad=ctx.createRadialGradient(pl.x-pl.radius*0.3, pl.y-pl.radius*0.3, 0, pl.x, pl.y, pl.radius);
+    grad.addColorStop(0, lightenColor(pl.color, 50)); grad.addColorStop(0.7, pl.color); grad.addColorStop(1, darkenColor(pl.color, 40));
+    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.radius, 0, Math.PI*2); ctx.fill();
+    if(pl.name==='Земля'){ ctx.fillStyle='rgba(50,130,60,0.5)'; ctx.beginPath(); ctx.arc(pl.x-pl.radius*0.3, pl.y-pl.radius*0.2, pl.radius*0.25, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(pl.x+pl.radius*0.4, pl.y+pl.radius*0.3, pl.radius*0.2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(pl.x-pl.radius*0.1, pl.y+pl.radius*0.4, pl.radius*0.15, 0, Math.PI*2); ctx.fill(); }
+    else if(pl.name==='Луна'){ ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.arc(pl.x-pl.radius*0.3, pl.y-pl.radius*0.3, pl.radius*0.15, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(pl.x+pl.radius*0.4, pl.y+pl.radius*0.2, pl.radius*0.1, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(pl.x-pl.radius*0.1, pl.y+pl.radius*0.4, pl.radius*0.12, 0, Math.PI*2); ctx.fill(); }
+  });
+  if(getAltitude()<20000||camera.y<EARTH_RADIUS+20000){ clouds.forEach(c=>{ if(Math.abs(c.x-camera.x)>viewW||Math.abs(c.y-camera.y)>viewH) return; ctx.fillStyle=`rgba(255,255,255,${c.alpha})`; ctx.beginPath(); ctx.ellipse(c.x, c.y, c.w/2, c.h/2, 0, 0, Math.PI*2); ctx.fill(); }); }
+  if(rocket&&getAltitude()<5000){ drawLaunchSite(); }
+  if(rocket&&rocket.alive&&launchPhase==='flying') drawTrajectory();
+  if(rocket) drawRocket();
+  ctx.restore();
+}
+function drawRocket(){
+  if(!rocket) return;
+  ctx.save();
+  ctx.translate(rocket.x, rocket.y);
+  // angle=π/2 => rotate(π) => нос смотрит вниз по экрану (в направлении полёта)
+  ctx.rotate(rocket.angle + Math.PI/2);
+  const rocketScale=3;
+  const thrusting=(keys['w']||keys['arrowup']||keys['m_fire'])&&throttle>0;
+  const hasFuel=rocket.parts.some(p=>p.type==='tank'&&p.fuel>0);
+  if(thrusting&&hasFuel&&!rocket.onGround){
+    const flameLen=(40+Math.random()*25)*rocketScale;
+    const glowGrad=ctx.createRadialGradient(0, flameLen*0.5, 0, 0, flameLen*0.5, flameLen);
+    glowGrad.addColorStop(0,'rgba(255,200,100,0.8)'); glowGrad.addColorStop(0.5,'rgba(255,100,50,0.4)'); glowGrad.addColorStop(1,'rgba(255,50,0,0)');
+    ctx.fillStyle=glowGrad; ctx.beginPath(); ctx.moveTo(-15*rocketScale, 0); ctx.lineTo(0, flameLen*1.3); ctx.lineTo(15*rocketScale, 0); ctx.closePath(); ctx.fill();
+    const flameGrad=ctx.createLinearGradient(0,0,0,flameLen);
+    flameGrad.addColorStop(0,'#ffffcc'); flameGrad.addColorStop(0.2,'#ffdd44'); flameGrad.addColorStop(0.5,'#ff8800'); flameGrad.addColorStop(1,'rgba(255,50,0,0)');
+    ctx.fillStyle=flameGrad; ctx.beginPath(); ctx.moveTo(-10*rocketScale, 0); ctx.quadraticCurveTo(-5*rocketScale, flameLen*0.7, 0, flameLen); ctx.quadraticCurveTo(5*rocketScale, flameLen*0.7, 10*rocketScale, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.moveTo(-4*rocketScale, 0); ctx.lineTo(0, flameLen*0.4); ctx.lineTo(4*rocketScale, 0); ctx.closePath(); ctx.fill();
+  }
+  let yPos=0;
+  rocket.parts.forEach(p=>{
+    const w=p.width*10*rocketScale; const h=p.height*10*rocketScale;
+    if(p.type==='nose'){ const grad=ctx.createLinearGradient(-w/2, yPos-h, w/2, yPos); grad.addColorStop(0,lightenColor(p.color,50)); grad.addColorStop(1,p.color); ctx.fillStyle=grad; ctx.beginPath(); ctx.moveTo(-w/2, yPos); ctx.quadraticCurveTo(0, yPos-h*1.1, w/2, yPos); ctx.closePath(); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=1; ctx.stroke(); }
+    else if(p.type==='engine'){ const grad=ctx.createLinearGradient(-w/2, yPos-h, w/2, yPos); grad.addColorStop(0,lightenColor(p.color,30)); grad.addColorStop(1,p.color); ctx.fillStyle=grad; ctx.fillRect(-w/2, yPos-h, w, h); ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.strokeRect(-w/2, yPos-h, w, h); ctx.fillStyle='#111'; ctx.beginPath(); ctx.moveTo(-w*0.35, yPos); ctx.lineTo(0, yPos+h*0.5); ctx.lineTo(w*0.35, yPos); ctx.closePath(); ctx.fill(); }
+    else if(p.type==='chute'){ if(parachuteDeployed){ ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(0, yPos-40*rocketScale, w*2, Math.PI, 0); ctx.fill(); ctx.strokeStyle='#888'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-w*2, yPos-40*rocketScale); ctx.lineTo(0, yPos); ctx.moveTo(w*2, yPos-40*rocketScale); ctx.lineTo(0, yPos); ctx.stroke(); } else { ctx.fillStyle=p.color; ctx.fillRect(-w/2, yPos-h, w, h); } }
+    else { const grad=ctx.createLinearGradient(-w/2, yPos-h, w/2, yPos); grad.addColorStop(0,lightenColor(p.color,30)); grad.addColorStop(1,p.color); ctx.fillStyle=grad; ctx.fillRect(-w/2, yPos-h, w, h); ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.strokeRect(-w/2, yPos-h, w, h); if(p.fuel&&p.fuel>0){ const maxF=PARTS[Object.keys(PARTS).find(k=>PARTS[k].name===p.name)]?.fuel||p.fuel; const ratio=p.fuel/maxF; const fuelGrad=ctx.createLinearGradient(0, yPos-h, 0, yPos); fuelGrad.addColorStop(0,'rgba(100,180,255,0.8)'); fuelGrad.addColorStop(1,'rgba(50,100,200,0.8)'); ctx.fillStyle=fuelGrad; ctx.fillRect(-w/2+2, yPos-h+2, w-4, (h-4)*ratio); } }
+    yPos-=h;
+  });
+  ctx.restore();
+}
+function drawTrajectory(){
+  ctx.strokeStyle='rgba(100,200,255,0.6)'; ctx.setLineDash([15/camera.zoom, 10/camera.zoom]); ctx.lineWidth=3/camera.zoom; ctx.beginPath();
+  let simX=rocket.x, simY=rocket.y; let simVx=rocket.vx, simVy=rocket.vy; let simMass=rocket.mass;
+  let simFuel=rocket.parts.filter(p=>p.type==='tank').reduce((s,p)=>s+p.fuel,0);
+  let totalThrust=0, totalFuelRate=0;
+  rocket.parts.forEach(p=>{ if(p.type==='engine'){ totalThrust+=p.thrust; totalFuelRate+=p.thrust/(p.isp*G0); } });
+  const speed=Math.sqrt(simVx*simVx+simVy*simVy);
+  let thrustAngle; if(speed>1){ thrustAngle=Math.atan2(simVy, simVx); } else { thrustAngle=rocket.angle; }
+  ctx.moveTo(simX, simY);
+  const simDt=5, steps=500;
+  for(let i=0;i<steps;i++){
+    const r=Math.sqrt(simX*simX+simY*simY); if(r<EARTH_RADIUS) break;
+    const g=G0*(EARTH_RADIUS/r)*(EARTH_RADIUS/r);
+    let ax=-g*(simX/r), ay=-g*(simY/r);
+    if(throttle>0&&simFuel>0&&totalThrust>0){
+      const thrust=totalThrust*(throttle/100); const fuelUse=totalFuelRate*(throttle/100)*simDt; simFuel-=fuelUse; if(simFuel<0) simFuel=0;
+      if(thrust>0&&simMass>0){ ax+=(thrust/simMass)*Math.cos(thrustAngle); ay+=(thrust/simMass)*Math.sin(thrustAngle); }
+    }
+    simVx+=ax*simDt; simVy+=ay*simDt; simX+=simVx*simDt; simY+=simVy*simDt;
+    const fuelBurned=totalFuelRate*(throttle/100)*simDt*(i+1);
+    simMass=rocket.mass-Math.min(fuelBurned, rocket.parts.filter(p=>p.type==='tank').reduce((s,p)=>s+p.fuel,0));
+    ctx.lineTo(simX, simY);
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+let lastTime=0;
+function gameLoop(time){ if(!flightActive) return; const dt=Math.min((time-lastTime)/1000, 0.1); lastTime=time; if(launchPhase==='flying'){ updatePhysics(dt); } draw(); requestAnimationFrame(gameLoop); }
+let mouseDown=false, mouseStartX=0, mouseStartY=0, camStartX=0, camStartY=0;
+canvas.addEventListener('mousedown', (e)=>{ mouseDown=true; mouseStartX=e.clientX; mouseStartY=e.clientY; camStartX=camera.targetX; camStartY=camera.targetY; camera.followRocket=false; });
+canvas.addEventListener('mousemove', (e)=>{ if(!mouseDown) return; const dx=e.clientX-mouseStartX; const dy=e.clientY-mouseStartY; camera.targetX=camStartX-dx/camera.zoom; camera.targetY=camStartY-dy/camera.zoom; });
+canvas.addEventListener('mouseup', ()=>{mouseDown=false;}); canvas.addEventListener('mouseleave', ()=>{mouseDown=false;});
+canvas.addEventListener('wheel', e=>{ e.preventDefault(); const zoomFactor=e.deltaY>0?0.85:1.18; camera.targetZoom=Math.max(1e-9, Math.min(50, camera.targetZoom*zoomFactor)); }, {passive:false});
+document.getElementById('zoom-in').addEventListener('click', ()=>{ camera.targetZoom=Math.min(50, camera.targetZoom*1.4); });
+document.getElementById('zoom-out').addEventListener('click', ()=>{ camera.targetZoom=Math.max(1e-9, camera.targetZoom/1.4); });
+window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true; if(e.shiftKey){ const step=100000/camera.zoom; if(e.key==='ArrowLeft'){camera.targetX-=step; camera.followRocket=false;} if(e.key==='ArrowRight'){camera.targetX+=step; camera.followRocket=false;} if(e.key==='ArrowUp'){camera.targetY-=step; camera.followRocket=false;} if(e.key==='ArrowDown'){camera.targetY+=step; camera.followRocket=false;} } if(e.key===' '){e.preventDefault(); nextStage();} if(e.key.toLowerCase()==='r'&&flightActive) abortFlight(); if(e.key.toLowerCase()==='p') deployParachute(); if(e.key.toLowerCase()==='f') navTo('rocket'); if(e.key.toLowerCase()==='o') navTo('overview'); });
+window.addEventListener('keyup', e=>keys[e.key.toLowerCase()]=false);
+document.getElementById('throttle-slider').addEventListener('input', e=>{ throttle=parseInt(e.target.value); document.getElementById('throttle-pct').textContent=throttle+'%'; });
+function setupTouchButton(id, key){ const btn=document.getElementById(id); btn.addEventListener('touchstart', (e)=>{e.preventDefault(); keys[key]=true;}, {passive:false}); btn.addEventListener('touchend', (e)=>{e.preventDefault(); keys[key]=false;}, {passive:false}); btn.addEventListener('mousedown', ()=>{keys[key]=true;}); btn.addEventListener('mouseup', ()=>{keys[key]=false;}); btn.addEventListener('mouseleave', ()=>{keys[key]=false;}); }
+setupTouchButton('m-left', 'm_left'); setupTouchButton('m-right', 'm_right'); setupTouchButton('m-fire', 'm_fire'); setupTouchButton('m-stage', 'space');
+let touchStartX=0, touchStartY=0, touchCamStartX=0, touchCamStartY=0, isSwiping=false, initialPinchDist=0;
+canvas.addEventListener('touchstart', (e)=>{ if(e.touches.length===1){ isSwiping=true; touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; touchCamStartX=camera.targetX; touchCamStartY=camera.targetY; camera.followRocket=false; } else if(e.touches.length===2){ isSwiping=false; const dx=e.touches[0].clientX-e.touches[1].clientX; const dy=e.touches[0].clientY-e.touches[1].clientY; initialPinchDist=Math.sqrt(dx*dx+dy*dy); } }, {passive:false});
+canvas.addEventListener('touchmove', (e)=>{ if(e.touches.length===1&&isSwiping){ e.preventDefault(); const dx=e.touches[0].clientX-touchStartX; const dy=e.touches[0].clientY-touchStartY; camera.targetX=touchCamStartX-dx/camera.zoom; camera.targetY=touchCamStartY-dy/camera.zoom; } else if(e.touches.length===2){ e.preventDefault(); const dx=e.touches[0].clientX-e.touches[1].clientX; const dy=e.touches[0].clientY-e.touches[1].clientY; const currentDist=Math.sqrt(dx*dx+dy*dy); if(initialPinchDist>0){ const scale=currentDist/initialPinchDist; camera.targetZoom=Math.max(1e-9, Math.min(50, camera.targetZoom*scale)); initialPinchDist=currentDist; } } }, {passive:false});
+canvas.addEventListener('touchend', ()=>{isSwiping=false;});
+updateBuilderStats(); drawBuilderRocket();
+</script>
+</body>
+</html>
